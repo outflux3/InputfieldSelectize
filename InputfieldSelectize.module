@@ -1,0 +1,238 @@
+<?php
+
+/**
+ * InputfieldSelectize module
+ *
+ * Inputfield for the ProcessWire FieldtypePage.
+ * For use with the Selectize.js jQuery plugin
+ * http://selectize.github.io/selectize.js/
+ *
+ * Copyright (C) 2016 Macrura
+ * Licensed under MIT License, see LICENSE.md
+ *
+ * http://nibiri.com
+ *
+ * http://www.processwire.com
+ * http://www.ryancramer.com
+ *
+ */
+
+class InputfieldSelectize extends InputfieldSelect {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' 	=> __('Inputfield Selectize', __FILE__), // Module Title
+			'summary' 	=> __('Inputfield for the ProcessWire FieldtypePage.', __FILE__), // Module Summary
+			'version' 	=> 100,
+			'requires' 	=> array("JquerySelectize")
+			);
+	}
+
+	protected $selectizeOptions = array();
+    protected $jsConfig = array();
+
+	public function init() {
+		parent::init();
+		$this->modules->JquerySelectize;
+	}
+
+	public function setSelectizeOption($key, $value) {
+		$this->selectizeOptions[$key] = $value;
+	}
+
+    /**
+     * Adds an option with extended attributes that allow mutually exclusive groups.
+     */
+    public function addOption($value, $label = null, array $attributes = null) {
+        if (
+            is_null($value) ||
+            (is_string($value) && !strlen($value))
+        ) {
+            return $this;
+        }
+
+        if (null === $attributes) {
+            $attributes = array();
+        }
+
+        $extra_atts = $this->extendAttributes($value, $label);
+        $attributes = array_merge($attributes, $extra_atts);
+
+		return parent::addOption($value, $label, $attributes);
+	}
+
+    /**
+     * Hook this and return an array with whatever extended attributes you need.
+     *
+     */
+    public function ___extendAttributes($id, $value) {
+        $atts = array();
+
+        /**
+         * If we don't have access to the inputfield setting, return a blank array
+         */
+        if(!$this->itemDataArray) return $atts;
+
+        /**
+         * Either hook this method to do what you want or implement things directly if this
+         * is the only use of this Inputfield.
+         */
+        $page = wire()->pages->get($id);
+
+        // itemDataArray must return an array for use by the select item
+        if($this->itemDataArray) {
+        	$data = eval($this->itemDataArray);
+        }
+
+        /**
+         * This validates that the eval'd code from
+         * the $itemDataArray is an array
+         */
+        if(!is_array($data)) {
+        	if($this->wire('process')->className() == 'ProcessPageEdit') {
+        		return $this->error($this->_('Only arrays should be returned by your code. Please check that you have input valid code.'));
+        	}
+        }
+
+        $atts['data-data'] = json_encode($data);
+        return $atts;
+    }
+
+
+	public function ___render() {
+
+		$class = $this->className();
+		$info = self::getModuleInfo();
+		$ver = $info['version'];
+
+		// force the options to run through the extend function while also having access to the inputfield settings
+		foreach($this->options as $key => $value) {
+			$this->addOption($key, $value);
+		}
+
+		if($this->searchField) {
+			$searchArray = explode(',', $this->searchField);
+			$this->setSelectizeOption('searchField', $searchArray);
+		}
+
+		if($this->renderItemMarkup) {
+			$this->jsConfig['renderItemMarkup'] = $this->renderItemMarkup;
+		}
+
+		if($this->renderOptionMarkup) {
+			$this->jsConfig['renderOptionMarkup'] = $this->renderOptionMarkup;
+		}
+
+		$this->jsConfig['selectizeOptions'] = $this->selectizeOptions;
+		$this->config->js(__CLASS__ . '_' . $this->id, $this->jsConfig);
+
+		return parent::___render();
+
+	}
+
+	public function ___install() {
+		$data = $this->modules->getModuleConfigData("InputfieldPage");
+		array_push($data["inputfieldClasses"], $this->className());
+		$this->modules->saveModuleConfigData("InputfieldPage", $data);
+	}
+
+	public function ___uninstall() {
+		$fields = wire('fields')->find("type=FieldtypePage");
+
+		foreach($fields as $field){
+			if($field->inputfield !== $this->className()) $fields->remove($field);
+		}
+
+		$this->warning($this->className()." was used in following fields: ".$fields->implode(", ", "name"));
+
+		$data = $this->modules->getModuleConfigData("InputfieldPage");
+
+		if(in_array($this->className(), $data["inputfieldClasses"])){
+			$key = array_search($this->className(), $data["inputfieldClasses"]);
+			unset($data["inputfieldClasses"][$key]);
+
+			$this->modules->saveModuleConfigData("InputfieldPage", $data);
+		}
+	}
+
+	public function ___getConfigInputfields() {
+
+		$inputfields = parent::___getConfigInputfields();
+
+		if(wire('modules')->get('InputfieldAceExtended')) {
+
+			$f = wire('modules')->get('InputfieldAceExtended');
+			$f->attr('name', 'itemDataArray');
+			$f->attr('value', $this->itemDataArray);
+			$f->label = $this->_('Array of data to use for items/options');
+			$f->description = $this->_('Your PHP code will be evaluated and MUST return an associative PHP array of the data to be used for each option.');
+			$f->notes = 'This eval has access to the $page variable.';
+			$f->mode = "php";
+			$f->theme = "monokai";
+			$inputfields->add($f);
+
+			$f = wire('modules')->get('InputfieldText');
+			$f->attr('name', 'searchField');
+			$f->attr('value', $this->searchField);
+			$f->label = $this->_('Search Field(s)');
+			$f->description = $this->_('Enter comma separated name of array keys (fields) you want to search on. (No spaces) Leave blank for default behavior.'); 
+			$inputfields->add($f);
+
+			$f = wire('modules')->get('InputfieldAceExtended');
+			$f->attr('name', 'renderItemMarkup');
+			$f->attr('value', $this->renderItemMarkup);
+			$f->label = $this->_('Render item markup');
+			$f->description = $this->_('This must be a valid javascript string which is passed to the render function');
+			$f->notes = "for each field in your array, use escape(item.fieldName) ";
+			$f->mode = "javascript";
+			$f->theme = "monokai";
+			$inputfields->add($f);
+
+			$f = wire('modules')->get('InputfieldAceExtended');
+			$f->attr('name', 'renderOptionMarkup');
+			$f->attr('value', $this->renderOptionMarkup);
+			$f->label = $this->_('Render option markup');
+			$f->description = $this->_('This must be a valid javascript string which is passed to the render function');
+			$f->notes = "for each field in your array, use escape(item.fieldName)";
+			$f->mode = "javascript";
+			$f->theme = "monokai";
+			$inputfields->add($f);
+
+		} else {
+
+			$f = wire('modules')->get('InputfieldTextarea');
+			$f->attr('name', 'itemDataArray');
+			$f->attr('value', $this->itemDataArray);
+			$f->label = $this->_('Array of data to use for items/options');
+			$f->description = $this->_('Your PHP code will be evaluated and MUST return an associative PHP array of the data to be used for each option.');
+			$f->notes = 'This eval has access to the $page variable.';
+			$inputfields->add($f);
+
+			$f = wire('modules')->get('InputfieldText');
+			$f->attr('name', 'searchField');
+			$f->attr('value', $this->searchField);
+			$f->label = $this->_('Search Field(s)');
+			$f->description = $this->_('Enter comma separated name of array keys (fields) you want to search on. (No spaces) Leave blank for default behavior.'); 
+			$inputfields->add($f);
+
+			$f = wire('modules')->get('InputfieldTextarea');
+			$f->attr('name', 'renderItemMarkup');
+			$f->attr('value', $this->renderItemMarkup);
+			$f->label = $this->_('Render item markup');
+			$f->description = $this->_('This must be a valid javascript string which is passed to the render function');
+			$f->notes = "for each field in your array, use escape(item.fieldName) ";
+			$inputfields->add($f);
+
+			$f = wire('modules')->get('InputfieldTextarea');
+			$f->attr('name', 'renderOptionMarkup');
+			$f->attr('value', $this->renderOptionMarkup);
+			$f->label = $this->_('Render option markup');
+			$f->description = $this->_('This must be a valid javascript string which is passed to the render function');
+			$f->notes = "for each field in your array, use escape(item.fieldName)";
+			$inputfields->add($f);
+		}
+
+		return $inputfields;
+	}
+
+}
