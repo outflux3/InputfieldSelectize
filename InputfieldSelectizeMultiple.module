@@ -176,7 +176,7 @@ class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements In
 			$f->attr('value', $this->itemDataArray);
 			$f->label = $this->_('Array of data to use for items/options');
 			$f->description = $this->_('Your PHP code will be evaluated and MUST return an associative PHP array of the data to be used for each option.');
-			$f->notes = "This eval has access to the $page variable.";
+			$f->notes = 'This eval has access to the $page variable.';
 			$f->mode = "php";
 			$f->theme = "monokai";
 			$inputfields->add($f);
