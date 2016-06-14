@@ -42,6 +42,7 @@ return $data;
 
 ### Another more advanced example
 **PHP**
+```
 $data = array(
   'title' => $page->title,
   'year' => $page->year ?: $page->year_sort,
@@ -50,6 +51,7 @@ $data = array(
 );
 
 return $data;
+```
 
 **Item:**
 ```
@@ -61,8 +63,10 @@ return $data;
 ```
 
 **Option:**
+
+```
 '<div class="item" style="width:100%;">' +
 '<div style="color: black; font-size: 14px;"><span style="font-weight:bold;">' + escape(item.title) + ' (' + escape(item.year) + ')</div>' +
 (item.for_inst ? '<div style="color:gray;">for ' + escape(item.for_inst) + '</div>' : '') +
 '</div>'
-
+```
