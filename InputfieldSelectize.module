@@ -14,7 +14,7 @@
  *
  * http://www.processwire.com
  * http://www.ryancramer.com
- *
+ * 
  */
 
 class InputfieldSelectize extends InputfieldSelect {
@@ -22,7 +22,10 @@ class InputfieldSelectize extends InputfieldSelect {
 	public static function getModuleInfo() {
 		return array(
 			'title' 	=> __('Inputfield Selectize', __FILE__), // Module Title
+			'author' 	=> 'Macrura',
 			'summary' 	=> __('Inputfield for the ProcessWire FieldtypePage.', __FILE__), // Module Summary
+			'href' 		=> 'https://processwire.com/talk/topic/13549-selectizejs-modules-family/',
+			'icon' 		=> 'caret-down',
 			'version' 	=> 100,
 			'requires' 	=> array("JquerySelectize")
 			);
