@@ -46,7 +46,7 @@ $data = array(
 return $data;
 ```
 
-**Javascript **(item and option same)
+**Javascript** (item and option same)
 ```
 '<div class="item">' +
 '<span style="display:block;font-size:14px;font-weight:bold;">' + escape(item.title)  + ' (' + escape(item.total) + ')</span>' +
