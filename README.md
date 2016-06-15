@@ -30,8 +30,11 @@ Selectize:
 
 -----
 
-### Example of array to be used by the select:
-PHP:
+## Examples
+
+### Basic Example
+
+**PHP:**
 ```
 $data = array(
     'title' => $page->title,
@@ -43,7 +46,7 @@ $data = array(
 return $data;
 ```
 
-### Javascript Example for item and option:
+**Javascript **(item and option same)
 ```
 '<div class="item">' +
 '<span style="display:block;font-size:14px;font-weight:bold;">' + escape(item.title)  + ' (' + escape(item.total) + ')</span>' +
@@ -51,9 +54,18 @@ return $data;
 '</div>'
 ```
 
+**Example screenshot:**
+[https://github.com/outflux3/InputfieldSelectize/screens/selectize-open.jpg](https://github.com/outflux3/InputfieldSelectize/screens/selectize-open.jpg)
+ 
 -----
 
-### Another more advanced example
+### A more advanced example
+
+This example shows how to use conditionals for the PHP and JS to get the select options to look clean and provide the necessary information to assist users in choosing the correct options:
+
+[https://github.com/outflux3/InputfieldSelectize/screens/if_selectize_multi-fw.jpg](https://github.com/outflux3/InputfieldSelectize/screens/if_selectize_multi-fw.jpg )
+ 
+
 **PHP**
 ```
 $data = array(
@@ -88,6 +100,13 @@ return $data;
 -----
 ### Example with images
 
+In this example the selects will feature a thumbnail image:
+[https://github.com/outflux3/InputfieldSelectize/screens/if_selectize_im.jpg](https://github.com/outflux3/InputfieldSelectize/screens/if_selectize_im.jpg)
+
+You could also set the width of the selected item to 100% depending on where you place the field (e.g. in a column)
+[https://github.com/outflux3/InputfieldSelectize/screens/if_selectize_im_fw.jpg](https://github.com/outflux3/InputfieldSelectize/screens/if_selectize_im_fw.jpg)
+
+```
 $image = $page->images->first();
 $thumb = $image->size(100,100);
 
@@ -101,8 +120,9 @@ $data = array(
 );
 
 return $data;
+```
 
-
+```
 '<div class="item" style="width:100%;">' +
 	'<div class="image-wrapper" style="float:left;"><img src="' + escape(item.thumb_src) + '" alt=""></div>' +
 	'<div class="info-wrapper" style="float:left; padding:5px;">' +
@@ -113,13 +133,13 @@ return $data;
 		'<a class="pw-modal pw-modal-medium" href="' + escape(item.edit_src) + 
 		'">Edit <span class="ui-icon ui-icon-extlink"></span></a></div>' +
 '</div>'
+```
 
-
+```
 '<div class="item">' +
 	'<div class="image-wrapper" style="float:left;"><img src="' + escape(item.thumb_src) + '" alt=""></div>' +
 	'<div class="info-wrapper" style="float:left; padding:5px;">' +
     '<span style="font-size:14px;font-weight:bold">' + escape(item.title) + '</span><br>' +
 	'</div>' +
 '</div>'
-
-
+```
