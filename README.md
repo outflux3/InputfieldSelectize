@@ -55,7 +55,7 @@ return $data;
 ```
 
 **Example screenshot:**
-!["Example Screenshot"](https://raw.githubusercontent.com/outflux3/InputfieldSelectize/master/screens/selectize-open.jpg?raw=true)
+!["Example Screenshot"](https://raw.githubusercontent.com/outflux3/InputfieldSelectize/master/screens/selectize-open.jpg)
  
 -----
 
@@ -101,10 +101,10 @@ return $data;
 ### Example with images
 
 In this example the selects will feature a thumbnail image:
-!["Page/Image"](https://raw.githubusercontent.com/outflux3/InputfieldSelectize/master/screens/if_selectize_im.jpg?raw=true)
+!["Page/Image"](https://raw.githubusercontent.com/outflux3/InputfieldSelectize/master/screens/if_selectize_im.jpg)
 
 You could also set the width of the selected item to 100% depending on where you place the field (e.g. in a column)
-!["Image width 100"](https://raw.githubusercontent.com/outflux3/InputfieldSelectize/master/if_selectize_im_fw.jpg?raw=true)
+!["Image width 100"](https://raw.githubusercontent.com/outflux3/InputfieldSelectize/master/screens/if_selectize_im_fw.jpg)
 
 
 ```
