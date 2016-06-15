@@ -63,7 +63,7 @@ return $data;
 
 This example shows how to use conditionals for the PHP and JS to get the select options to look clean and provide the necessary information to assist users in choosing the correct options:
 
-![Multi Page](InputfieldSelectize/screens/if_selectize_multi-fw.jpg?raw=true)
+![Multi Page](https://raw.githubusercontent.com/outflux3/InputfieldSelectize/master/screens/if_selectize_multi-fw.jpg)
 
 
 **PHP**
@@ -105,6 +105,7 @@ In this example the selects will feature a thumbnail image:
 
 You could also set the width of the selected item to 100% depending on where you place the field (e.g. in a column)
 !["Image width 100"](InputfieldSelectize/screens/if_selectize_im_fw.jpg?raw=true)
+
 
 ```
 $image = $page->images->first();
