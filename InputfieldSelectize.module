@@ -26,7 +26,7 @@ class InputfieldSelectize extends InputfieldSelect {
 			'summary' 	=> __('Inputfield for the ProcessWire FieldtypePage.', __FILE__), // Module Summary
 			'href' 		=> 'https://processwire.com/talk/topic/13549-selectizejs-modules-family/',
 			'icon' 		=> 'caret-down',
-			'version' 	=> 100,
+			'version' 	=> 101,
 			'requires' 	=> array("JquerySelectize")
 			);
 	}
@@ -161,79 +161,56 @@ class InputfieldSelectize extends InputfieldSelect {
 	public function ___getConfigInputfields() {
 
 		$inputfields = parent::___getConfigInputfields();
+		$useAce = wire('modules')->get('InputfieldAceExtended') ? true : false;
 
-		if(wire('modules')->get('InputfieldAceExtended')) {
-
+		if($useAce) {
 			$f = wire('modules')->get('InputfieldAceExtended');
-			$f->attr('name', 'itemDataArray');
-			$f->attr('value', $this->itemDataArray);
-			$f->label = $this->_('Array of data to use for items/options');
-			$f->description = $this->_('Your PHP code will be evaluated and MUST return an associative PHP array of the data to be used for each option.');
-			$f->notes = 'This eval has access to the $page variable.';
 			$f->mode = "php";
 			$f->theme = "monokai";
-			$inputfields->add($f);
-
-			$f = wire('modules')->get('InputfieldText');
-			$f->attr('name', 'searchField');
-			$f->attr('value', $this->searchField);
-			$f->label = $this->_('Search Field(s)');
-			$f->description = $this->_('Enter comma separated name of array keys (fields) you want to search on. (No spaces) Leave blank for default behavior.'); 
-			$inputfields->add($f);
-
-			$f = wire('modules')->get('InputfieldAceExtended');
-			$f->attr('name', 'renderItemMarkup');
-			$f->attr('value', $this->renderItemMarkup);
-			$f->label = $this->_('Render item markup');
-			$f->description = $this->_('This must be a valid javascript string which is passed to the render function');
-			$f->notes = "for each field in your array, use escape(item.fieldName) ";
-			$f->mode = "javascript";
-			$f->theme = "monokai";
-			$inputfields->add($f);
-
-			$f = wire('modules')->get('InputfieldAceExtended');
-			$f->attr('name', 'renderOptionMarkup');
-			$f->attr('value', $this->renderOptionMarkup);
-			$f->label = $this->_('Render option markup');
-			$f->description = $this->_('This must be a valid javascript string which is passed to the render function');
-			$f->notes = "for each field in your array, use escape(item.fieldName)";
-			$f->mode = "javascript";
-			$f->theme = "monokai";
-			$inputfields->add($f);
-
 		} else {
-
-			$f = wire('modules')->get('InputfieldTextarea');
-			$f->attr('name', 'itemDataArray');
-			$f->attr('value', $this->itemDataArray);
-			$f->label = $this->_('Array of data to use for items/options');
-			$f->description = $this->_('Your PHP code will be evaluated and MUST return an associative PHP array of the data to be used for each option.');
-			$f->notes = 'This eval has access to the $page variable.';
-			$inputfields->add($f);
-
-			$f = wire('modules')->get('InputfieldText');
-			$f->attr('name', 'searchField');
-			$f->attr('value', $this->searchField);
-			$f->label = $this->_('Search Field(s)');
-			$f->description = $this->_('Enter comma separated name of array keys (fields) you want to search on. (No spaces) Leave blank for default behavior.'); 
-			$inputfields->add($f);
-
-			$f = wire('modules')->get('InputfieldTextarea');
-			$f->attr('name', 'renderItemMarkup');
-			$f->attr('value', $this->renderItemMarkup);
-			$f->label = $this->_('Render item markup');
-			$f->description = $this->_('This must be a valid javascript string which is passed to the render function');
-			$f->notes = "for each field in your array, use escape(item.fieldName) ";
-			$inputfields->add($f);
-
-			$f = wire('modules')->get('InputfieldTextarea');
-			$f->attr('name', 'renderOptionMarkup');
-			$f->attr('value', $this->renderOptionMarkup);
-			$f->label = $this->_('Render option markup');
-			$f->description = $this->_('This must be a valid javascript string which is passed to the render function');
-			$f->notes = "for each field in your array, use escape(item.fieldName)";
-			$inputfields->add($f);
+			$f = $this->modules->get('InputfieldTextarea');
 		}
+		$f->attr('name', 'itemDataArray');
+		$f->attr('value', $this->itemDataArray);
+		$f->label = $this->_('Array of data to use for items/options');
+		$f->description = $this->_('Your PHP code will be evaluated and MUST return an associative PHP array of the data to be used for each option.');
+		$f->notes = $this->_('This eval has access to the $page variable.');
+		$inputfields->add($f);
+
+		$f = wire('modules')->get('InputfieldText');
+		$f->attr('name', 'searchField');
+		$f->attr('value', $this->searchField);
+		$f->label = $this->_('Search Field(s)');
+		$f->description = $this->_('Enter comma separated name of array keys (fields) you want to search on. (No spaces) Leave blank for default behavior.');
+		$inputfields->add($f);
+
+		if($useAce) {
+			$f = wire('modules')->get('InputfieldAceExtended');
+			$f->mode = "javascript";
+			$f->theme = "monokai";
+		} else {
+			$f = $this->modules->get('InputfieldTextarea');
+		}
+		$f->attr('name', 'renderItemMarkup');
+		$f->attr('value', $this->renderItemMarkup);
+		$f->label = $this->_('Render item markup');
+		$f->description = $this->_('This must be a valid javascript string which is passed to the render function');
+		$f->notes = $this->_("for each field in your array, use escape(item.fieldName)");
+		$inputfields->add($f);
+
+		if($useAce) {
+			$f = wire('modules')->get('InputfieldAceExtended');
+			$f->mode = "javascript";
+			$f->theme = "monokai";
+		} else {
+			$f = $this->modules->get('InputfieldTextarea');
+		}
+		$f->attr('name', 'renderOptionMarkup');
+		$f->attr('value', $this->renderOptionMarkup);
+		$f->label = $this->_('Render option markup');
+		$f->description = $this->_('This must be a valid javascript string which is passed to the render function');
+		$f->notes = $this->_("for each field in your array, use escape(item.fieldName)");
+		$inputfields->add($f);
 
 		return $inputfields;
 	}
