@@ -8,7 +8,7 @@ $(document).ready(function() {
 		eval('var itemMarkup=config.'+itemMarkupJSON);
 
 		var optionMarkupJSON = 'InputfieldSelectizeMultiple_' + thisID + '.renderOptionMarkup';
-		eval('var optionMarkup=config.'+itemMarkupJSON);
+		eval('var optionMarkup=config.'+optionMarkupJSON);
 
 		var configOpts = 'InputfieldSelectizeMultiple_' + thisID + '.selectizeOptions';
 		eval('var thisOpts=config.'+configOpts);
