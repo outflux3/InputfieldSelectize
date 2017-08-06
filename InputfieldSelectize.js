@@ -1,4 +1,6 @@
-$(document).ready(function() {
+$(document).on('ready reloaded wiretabclick opened', initSelectize);
+
+function initSelectize(e) {
 
 	$(".InputfieldSelectize select:not([multiple])").each(function() {
 
@@ -22,5 +24,4 @@ $(document).ready(function() {
 
 	});
 
-});
-
+}

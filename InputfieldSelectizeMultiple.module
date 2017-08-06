@@ -19,24 +19,42 @@
 
 class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements InputfieldHasArrayValue{
 
-	public static function getModuleInfo() {
-		return array(
-			'title' 	=> __('Inputfield Selectize Multiple', __FILE__), // Module Title
-			'author' 	=> 'Macrura',
-			'summary'	=> __('Inputfield for the ProcessWire FieldtypePage (multi version).', __FILE__), // Module Summary
-			'href' 		=> 'https://processwire.com/talk/topic/13549-selectizejs-modules-family/',
-			'version' 	=> 102,
-			'icon' 		=> 'caret-down',
-			'requires'  => array("JquerySelectize"),
-			);
-	}
+	// public static function getModuleInfo() {
+	// 	return array(
+	// 		'title' 	=> __('Inputfield Selectize Multiple', __FILE__), // Module Title
+	// 		'author' 	=> 'Macrura',
+	// 		'summary'	=> __('Inputfield for the ProcessWire FieldtypePage (multi version).', __FILE__), // Module Summary
+	// 		'href' 		=> 'https://processwire.com/talk/topic/13549-selectizejs-modules-family/',
+	// 		'version' 	=> 101,
+	// 		'icon' 		=> 'caret-down',
+	// 		'requires'  => array("JquerySelectize"),
+	// 		'singular' 	=> true,
+ //            'autoload' 	=> "template=admin",
+	// 		);
+	// }
 
 	protected $selectizeOptions = array();
     protected $jsConfig = array();
 
 	public function init() {
 		parent::init();
-		$this->modules->JquerySelectize;
+
+		if($this->config->version < '3.0.67') {
+			$this->modules->JquerySelectize;
+		} else {
+			// if the version is >= than 3.0.67, and jQuerySelectize module is installed,
+			// init the module, in case a skin is selected; the module will use the core
+			// selectize library anyway...
+			if($this->modules->get('JquerySelectize')) {
+				$this->modules->JquerySelectize;
+			} else {
+				$this->wire('modules')->get('JqueryUI')->use('selectize');
+			}
+		}
+
+
+		//$this->modules->JquerySelectize;
+
 		// the JSON config object for this instance:
 		$this->setSelectizeOption('plugins', ['remove_button','drag_drop']);
 	}
@@ -195,16 +213,14 @@ class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements In
 		$f->attr('name', 'searchField');
 		$f->attr('value', $this->searchField);
 		$f->label = $this->_('Search Field(s)');
-		$f->description = $this->_('Enter comma separated name of array keys (fields) you want to search on. (No spaces) Leave blank for default behavior.');
-		$f->columnWidth = 60;
+		$f->description = $this->_('Enter comma separated name of array keys (fields) you want to search on. (No spaces) Leave blank for default behavior.'); 
 		$inputfields->add($f);
 
 		$f = wire('modules')->get('InputfieldInteger');
 		$f->attr('name', 'maxItems');
 		$f->attr('value', $this->maxItems);
 		$f->label = $this->_('Max Items');
-		$f->description = $this->_('If you need to limit the total number of selected items, enter that number here.');
-		$f->columnWidth = 40;
+		$f->description = $this->_('If you need to limit the total number of selected items, enter that number here.'); 
 		$inputfields->add($f);
 
 		if($useAce) {
