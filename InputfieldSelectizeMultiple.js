@@ -1,4 +1,8 @@
-$(document).ready(function() {
+
+
+$(document).on('ready wiretabclick reloaded opened', initSelectize);
+
+function initSelectize(e) {
 
 	$(".InputfieldSelectizeMultiple select").each(function() {
 
@@ -21,4 +25,5 @@ $(document).ready(function() {
 		$(this).selectize(thisOpts);
 	});
 
-});
+};
+
