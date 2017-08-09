@@ -263,8 +263,6 @@ class InputfieldSelectize extends InputfieldSelect {
 			$inputfields->add($f);
 		}
 
-		bd($inputfields);
-
 		$this->configMode = false; // reverse what was set at the top of this function
 		return $inputfields;
 	}
