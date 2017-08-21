@@ -17,21 +17,22 @@
  *
  */
 
-class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements InputfieldHasArrayValue{
 
-	// public static function getModuleInfo() {
-	// 	return array(
-	// 		'title' 	=> __('Inputfield Selectize Multiple', __FILE__), // Module Title
-	// 		'author' 	=> 'Macrura',
-	// 		'summary'	=> __('Inputfield for the ProcessWire FieldtypePage (multi version).', __FILE__), // Module Summary
-	// 		'href' 		=> 'https://processwire.com/talk/topic/13549-selectizejs-modules-family/',
-	// 		'version' 	=> 101,
-	// 		'icon' 		=> 'caret-down',
-	// 		'requires'  => array("JquerySelectize"),
-	// 		'singular' 	=> true,
- //            'autoload' 	=> "template=admin",
-	// 		);
-	// }
+class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements InputfieldHasArrayValue, InputfieldHasSortableValue {
+
+
+	public static function getModuleInfo() {
+		return array(
+			'title' 	=> __('Inputfield Selectize Multiple', __FILE__), // Module Title
+			'author' 	=> 'Macrura',
+			'summary'	=> __('Inputfield for the ProcessWire FieldtypePage (multi version).', __FILE__), // Module Summary
+			'href' 		=> 'https://processwire.com/talk/topic/13549-selectizejs-modules-family/',
+			'version' 	=> 106,
+			'icon' 		=> 'caret-down',
+			'singular'	=> false,
+			);
+	}
+
 
 	protected $selectizeOptions = array();
     protected $jsConfig = array();
@@ -52,11 +53,10 @@ class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements In
 			}
 		}
 
-
-		//$this->modules->JquerySelectize;
-
 		// the JSON config object for this instance:
 		$this->setSelectizeOption('plugins', ['remove_button','drag_drop']);
+		$this->set('size', null);
+
 	}
 
 	public function setSelectizeOption($key, $value) {
@@ -67,16 +67,8 @@ class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements In
      * Adds an option with extended attributes that allow mutually exclusive groups.
      */
     public function addOption($value, $label = null, array $attributes = null) {
-        if (
-            is_null($value) ||
-            (is_string($value) && !strlen($value))
-        ) {
-            return $this;
-        }
-
-        if (null === $attributes) {
-            $attributes = array();
-        }
+        if(is_null($value) || (is_string($value) && !strlen($value))) return $this;
+        if (null === $attributes) $attributes = array();
 
         $extra_atts = $this->extendAttributes($value, $label);
         $attributes = array_merge($attributes, $extra_atts);
@@ -121,8 +113,15 @@ class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements In
         return $atts;
     }
 
-
-	public function ___render() {
+	/**
+	 * Called before render()
+	 *
+	 * @param Inputfield $parent
+	 * @param bool $renderValueMode
+	 * @return bool
+	 *
+	 */
+	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
 
 		$class = $this->className();
 		$info = self::getModuleInfo();
@@ -131,15 +130,6 @@ class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements In
 		// force the options to run through the extend function while also having access to the inputfield settings
 		foreach($this->options as $key => $value) {
 			$this->addOption($key, $value);
-		}
-
-		//this is required to get the items in order (?)
-		$selectedOptions = $this->attr('value');
-		foreach($selectedOptions as $id) {
-			if(!isset($this->options[$id])) continue;
-			$label = $this->options[$id];
-			unset($this->options[$id]);
-			$this->addOption($id, $label);
 		}
 
 		if($this->searchField) {
@@ -162,8 +152,24 @@ class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements In
 		$this->jsConfig['selectizeOptions'] = $this->selectizeOptions;
 		$this->config->js(__CLASS__ . '_' . $this->id, $this->jsConfig);
 
+		return parent::renderReady($parent, $renderValueMode);
+	}
+
+
+	public function ___render() {
+
+		$selectedOptions = $this->attr('value'); 
+
+		foreach($selectedOptions as $id) {
+			if(!isset($this->options[$id])) continue; 
+			$label = $this->options[$id];
+			unset($this->options[$id]);
+			$this->addOption($id, $label);
+		}
+
 		return parent::___render();
 	}
+
 
 	public function ___install() {
 		$data = $this->modules->getModuleConfigData("InputfieldPage");

@@ -6,10 +6,9 @@ $info = array(
     'author'    => 'Macrura',
     'summary'   => 'Inputfield for the ProcessWire FieldtypePage (multi version).', // Module Summary
     'href'      => 'https://processwire.com/talk/topic/13549-selectizejs-modules-family/',
-    'version'   => 103,
+    'version'   => 106,
     'icon'      => 'caret-down',
-    'singular'  => true,
-    'autoload'  => "template=admin",
+    'singular'  => false,
     );
 
 if($this->wire('config')->version < '3.0.67') {
