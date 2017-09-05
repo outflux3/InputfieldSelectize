@@ -179,20 +179,6 @@ class InputfieldSelectize extends InputfieldSelect {
 
 	}
 
-	public function ___render() {
-
-		$selectedOptions = $this->attr('value'); 
-
-		foreach($selectedOptions as $id) {
-			if(!isset($this->options[$id])) continue; 
-			$label = $this->options[$id];
-			unset($this->options[$id]);
-			$this->addOption($id, $label);
-		}
-
-		return parent::___render();
-	}
-
 
 	public function ___install() {
 		$data = $this->modules->getModuleConfigData("InputfieldPage");
