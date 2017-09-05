@@ -27,7 +27,7 @@ class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements In
 			'author' 	=> 'Macrura',
 			'summary'	=> __('Inputfield for the ProcessWire FieldtypePage (multi version).', __FILE__), // Module Summary
 			'href' 		=> 'https://processwire.com/talk/topic/13549-selectizejs-modules-family/',
-			'version' 	=> 106,
+			'version' 	=> 108,
 			'icon' 		=> 'caret-down',
 			'singular'	=> false,
 			);

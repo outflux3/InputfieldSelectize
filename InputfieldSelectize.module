@@ -26,7 +26,7 @@ class InputfieldSelectize extends InputfieldSelect {
 			'summary' 	=> __('Inputfield for the ProcessWire FieldtypePage.', __FILE__), // Module Summary
 			'href' 		=> 'https://processwire.com/talk/topic/13549-selectizejs-modules-family/',
 			'icon' 		=> 'caret-down',
-			'version' 	=> 106,
+			'version' 	=> 108,
 			'singular'	=> false,
 			);
 	}
@@ -132,8 +132,15 @@ class InputfieldSelectize extends InputfieldSelect {
         return $atts;
     }
 
-
-	public function ___render() {
+	/**
+	 * Called before render()
+	 *
+	 * @param Inputfield $parent
+	 * @param bool $renderValueMode
+	 * @return bool
+	 *
+	 */
+	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
 
 		$class = $this->className();
 		$info = self::getModuleInfo();
@@ -168,9 +175,24 @@ class InputfieldSelectize extends InputfieldSelect {
 		$this->jsConfig['selectizeOptions'] = $this->selectizeOptions;
 		$this->config->js(__CLASS__ . '_' . $this->id, $this->jsConfig);
 
-		return parent::___render();
+		return parent::renderReady($parent, $renderValueMode);
 
 	}
+
+	public function ___render() {
+
+		$selectedOptions = $this->attr('value'); 
+
+		foreach($selectedOptions as $id) {
+			if(!isset($this->options[$id])) continue; 
+			$label = $this->options[$id];
+			unset($this->options[$id]);
+			$this->addOption($id, $label);
+		}
+
+		return parent::___render();
+	}
+
 
 	public function ___install() {
 		$data = $this->modules->getModuleConfigData("InputfieldPage");

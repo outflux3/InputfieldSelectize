@@ -1,27 +1,35 @@
-$(document).on('ready reloaded wiretabclick opened', initSelectize);
+var initSelectize = function() {
 
-function initSelectize(e) {
+	var thisID = $(this).attr('id');
+	var optsID = thisID.split('_repeater')[0];
 
-	$(".InputfieldSelectize select:not([multiple])").each(function() {
+	var itemMarkupJSON = 'InputfieldSelectize_' + optsID + '.renderItemMarkup';
+	eval('var itemMarkup=config.'+itemMarkupJSON);
 
-		var thisID = $(this).attr('id');
+	var optionMarkupJSON = 'InputfieldSelectize_' + optsID + '.renderOptionMarkup';
+	eval('var optionMarkup=config.'+optionMarkupJSON);
 
-		var itemMarkupJSON = 'InputfieldSelectize_' + thisID + '.renderItemMarkup';
-		eval('var itemMarkup=config.'+itemMarkupJSON);
+	var configOpts = 'InputfieldSelectize_' + optsID + '.selectizeOptions';
+	eval('var thisOpts=config.'+configOpts);
 
-		var optionMarkupJSON = 'InputfieldSelectize_' + thisID + '.renderOptionMarkup';
-		eval('var optionMarkup=config.'+optionMarkupJSON);
+	thisOpts['render'] = {
+		item: function(item, escape) {return eval(itemMarkup);},
+		option: function(item, escape) {return eval(optionMarkup);},
+	};
 
-		var configOpts = 'InputfieldSelectize_' + thisID + '.selectizeOptions';
-		eval('var thisOpts=config.'+configOpts);
+	$(this).selectize(thisOpts);
 
-		thisOpts['render'] = {
-			item: function(item, escape) {return eval(itemMarkup);},
-			option: function(item, escape) {return eval(optionMarkup);},
-		};
+};
 
-		$(this).selectize(thisOpts);
 
+$(document).ready(function() {
+
+	$(".InputfieldSelectize select:not([multiple])").each(initSelectize);
+
+	$(document).on('reloaded opened repeateradd wiretabclick', '.InputfieldPage', function() {
+		$(this).find(".InputfieldSelectize select:not([multiple])").each(initSelectize);
 	});
 
-}
+});
+
+
