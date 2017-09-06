@@ -14,11 +14,11 @@
  *
  * http://www.processwire.com
  * http://www.ryancramer.com
- *
+ * InputfieldHasSortableValue (only in 3+)
  */
 
 
-class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements InputfieldHasArrayValue, InputfieldHasSortableValue {
+class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements InputfieldHasArrayValue {
 
 
 	public static function getModuleInfo() {
