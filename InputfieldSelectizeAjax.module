@@ -1,0 +1,429 @@
+<?php
+
+/**
+ * AdminSelectizeText module for ProcessWire
+ *
+ */
+
+/**
+ * Class AdminSelectizeText class InputfieldSelectize extends InputfieldSelect {
+ */
+class InputfieldSelectizeAjax extends InputfieldPageAutocomplete {
+
+    public static function getModuleInfo() {
+        return array(
+            'title' => 'Selectize with Ajax',
+            'author' => 'Macrura',
+            'version' => 100,
+            'summary' => 'Selectize input, using ajax to populate options',
+            'href' => '',
+            'icon' => 'tags',
+            'singular' => true,
+            'autoload' => 'template=admin',
+
+        );
+    }
+
+    protected $selectizeOptions = array();
+    protected $jsConfig = array();
+
+    public function setSelectizeOption($key, $value) {
+        $this->selectizeOptions[$key] = $value;
+    }
+
+
+    /**
+     * Hook this and return an array with whatever extended attributes you need.
+     *
+     */
+    public function ___extendAttributes($page) {
+
+        if($this->itemDataArray) $data = eval($this->itemDataArray);
+
+        /**
+         * This validates that the eval'd code from
+         * the $itemDataArray is an array
+         */
+        if(!empty($data) && !is_array($data)) {
+            if($this->wire('process')->className() == 'ProcessPageEdit') {
+                return $this->error($this->_('Only arrays should be returned by your code. Please check that you have input valid code.'));
+            }
+        }
+
+        // if there is no data array entered, try and generate one from the display fields entered
+        if(!$this->itemDataArray && $this->displayFields) {
+
+            $data = array();
+
+            $displayFields = str_replace(array(',', '|'), ' ', $this->displayFields); // QA?
+            foreach(explode(' ', $displayFields) as $key => $name) {
+                $name = trim($name);
+                if(strpos($name, '.')) {
+                    list($name, $subname) = explode('.', $name);
+                    $name = $this->wire('sanitizer')->fieldName($name);
+                    $subname = $this->wire('sanitizer')->fieldName($subname);
+                    if($name && $subname) $data[$name] = $page->$name->$subname;
+                } else {
+                    $name = $this->wire('sanitizer')->fieldName($name);
+                    if($page->$name)
+                    if($this->generateThumb2($name, $page)) {
+                        $data['thumbUrl'] = $this->generateThumb2($name, $page);
+                    } else {
+                        $data[$name] = $page->$name;
+                    }
+                }
+            }
+        }
+
+        //renderMatchesAjax already adds this for adminsearchmode?
+        if(!isset($data['editUrl'])) $data['editUrl'] = $page->editUrl;
+
+        return "data-data='" . json_encode($data) . "'";
+    }
+
+    public function init() {
+        parent::init();
+
+        $this->set('searchField', '');
+        $this->set('renderOptionMarkup', '');
+        $this->set('renderItemMarkup', '');
+        $this->set('allowEmptyOption', 0);
+
+        $this->wire('modules')->get('JqueryUI')->use('selectize');
+
+        $this->addHookAfter('ProcessPageSearch::executeFor', $this, 'generateThumb');
+
+    }
+
+    /**
+     * Called before render()
+     *
+     * @param Inputfield $parent
+     * @param bool $renderValueMode
+     * @return bool
+     *
+     */
+    public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+
+        $class = $this->className();
+        $info = self::getModuleInfo();
+        $ver = $info['version'];
+
+        if($this->required) {
+            $this->allowEmptyOption = 1;
+        }
+
+        $this->setSelectizeOption('valueField', 'id');
+        $this->setSelectizeOption('labelField', 'title');
+        $this->setSelectizeOption('create', false);
+
+        if($this->searchFields) {
+            $searchArray = explode(' ', $this->searchFields);
+            $this->setSelectizeOption('searchField', $searchArray);
+        }
+
+        if($this->renderItemMarkup) {
+            $this->jsConfig['renderItemMarkup'] = $this->renderItemMarkup;
+        }
+
+        if($this->renderOptionMarkup) {
+            $this->jsConfig['renderOptionMarkup'] = $this->renderOptionMarkup;
+        }
+
+        if($this->allowEmptyOption) {
+            $this->setSelectizeOption('allowEmptyOption', true);
+        }
+
+        $this->jsConfig['selectizeOptions'] = $this->selectizeOptions;
+        $this->config->js(__CLASS__ . '_' . $this->id, $this->jsConfig);
+
+        return parent::renderReady($parent, $renderValueMode);
+
+    }
+
+
+    /**
+     * Render the autocompletion widget
+     *
+     */
+    public function ___render() {
+
+        if($this->maxSelectedItems == 1) $this->useList = false;
+        $out = $this->useList ? $this->renderList() : '';
+        $value = implode(',', $this->value); 
+        $url = $this->getAjaxUrl();
+
+        // convert our list of search fields to a CSV string for use in the ProcessPageSearch query
+        $searchField = '';
+        $searchFields = str_replace(array(',', '|'), ' ', $this->searchFields);
+        foreach(explode(' ', $searchFields) as $key => $name) {
+            $name = trim($name); 
+            // @esrch pr#994 --
+            if(strpos($name, '.')) {
+                list($name, $subname) = explode('.', $name);
+                $name = $this->wire('sanitizer')->fieldName($name);
+                $subname = $this->wire('sanitizer')->fieldName($subname);
+                if($name && $subname) $name .= "-$subname";
+                // -- pr#994
+            } else {
+                $name = $this->wire('sanitizer')->fieldName($name);
+            }
+            if($name) $searchField .= ($searchField ? ',' : '') . $name; 
+        }
+
+        if(!$searchField) $searchField = 'title';
+
+        // convert our list of search fields to a CSV string for use in the ProcessPageSearch query
+        $displayField = '';
+        $displayFields = str_replace(array(',', '|'), ' ', $this->displayFields);
+        foreach(explode(' ', $displayFields) as $key => $name) {
+            $name = trim($name); 
+            // @esrch pr#994 --
+            if(strpos($name, '.')) {
+                list($name, $subname) = explode('.', $name);
+                $name = $this->wire('sanitizer')->fieldName($name);
+                $subname = $this->wire('sanitizer')->fieldName($subname);
+                if($name && $subname) $name .= "-$subname";
+                // -- pr#994
+            } else {
+                $name = $this->wire('sanitizer')->fieldName($name);
+            }
+            if($name) $displayField .= ($displayField ? ',' : '') . $name; 
+        }
+
+        if(!$displayField) $displayField = 'title';
+
+
+        $addNote = $this->_('Hit enter to add as new item'); 
+
+        $labelField = $this->labelFieldFormat ? "autocomplete_$this->name" : $this->labelFieldName; 
+        $operator = $this->operator; 
+        $id = $this->id; 
+        $max = (int) $this->maxSelectedItems; 
+        $class = $this->useList ? 'has_list' : 'no_list';
+        if($this->useAndWords) $class .= " and_words";
+        if($this->allowAnyValue) $class .= " allow_any";
+
+        $disableChars = $this->disableChars; 
+        if($disableChars) {
+            $hasDoubleQuote = strpos($disableChars, '"') !== false; 
+            $hasSingleQuote = strpos($disableChars, "'") !== false; 
+            if($hasDoubleQuote && $hasSingleQuote) {
+                $this->error("disableChars cannot have both double and single quotes"); 
+                $disableChars = str_replace('"', '', $disableChars); 
+            }
+            if($hasSingleQuote) $disableChars = "data-disablechars=\"$disableChars\" ";
+                else $disableChars = "data-disablechars='$disableChars' ";
+        }
+
+        $placeholder = $this->placeholder ?: 'Type something';
+
+        $attrs =
+            "placeholder='$placeholder' " . 
+            "data-max='$max' " . 
+            "data-url='$url' " . 
+            "data-label='" . $this->wire('sanitizer')->entities($labelField) . "' " . 
+            "data-search='$searchField' " . 
+            "data-operator='$operator' " .
+            "data-fields='$displayField' ";
+
+        $textValue = '';
+        $remove = '';
+        if(!$this->useList) {
+            if(count($this->value)) {
+                $item = $this->wire('pages')->getById($this->value)->first();
+                if($item && $item->id) {
+                    $textValue = $this->labelFieldFormat ? $item->getText($this->labelFieldFormat, true, false) : $item->get($labelField);
+                    if(!strlen($textValue)) $textValue = $item->get('title|name');
+                    $textValue = strip_tags($textValue);
+                    if(strpos($textValue, '&') !== false) $textValue = $this->wire('sanitizer')->unentities($textValue);
+                    $textValue = $this->wire('sanitizer')->entities($textValue);
+                    $optAttrs = $this->extendAttributes($item);
+                }
+            }
+        }
+
+        $option = '';
+        if($value && $textValue) {
+           $option =  "<option selected value='$value' {$optAttrs}>$textValue</option>";
+        }
+
+        $out .= <<< _OUT
+        <p>
+            <select name='{$this->name}[]' id='$id' class='InputfieldSelectizeAjax' value='$value' {$attrs}/>
+                $option
+            </select>
+        </p>
+_OUT;
+
+        return $out; 
+    }
+
+
+    public function generateThumb($event) {
+
+        if(!$this->config->ajax) return;
+
+        $response = $event->return;
+        $responseArray = json_decode($response, true);
+        $matches = $responseArray['matches'];
+        //bd($matches);
+        //$size = explode(",", $this->pageLabelImageSize);
+        $size = explode(",", "100,100");
+        $i=0;
+        foreach($matches as $match) {
+
+            $id = $match['id'];
+            $page = $this->pages->get($id);
+            foreach($match as $field => $value) {
+                $v = $page->get($field);
+
+                $thumb_url = '';
+                if($v instanceof Pageimages && count($v)) {
+                    $thumb_url = $page->$field->first()->size($size[0],$size[1])->url;
+                } elseif($v instanceof ProcessWire\Pageimage && $v) {
+                    $thumb_url = $page->$field->size($size[0],$size[1])->url;
+                }
+
+                if(strlen(trim($thumb_url))) {
+                    $matches[$i]['thumbUrl'] = $thumb_url;
+                }
+
+                // if($match['type'] == 'Pages' && strpos($match['path'], $this->config->urls->admin) === false) {
+                //     $matches[$i]['editUrl'] = $match['path'];
+                // }
+            }
+
+            $i++;
+        }
+
+        $responseArray['matches'] = $matches;
+        $event->return = json_encode($responseArray);
+
+    }
+
+
+    private function generateThumb2($field, $page) {
+        $size = explode(",", "100,100");
+        $v = $page->get($field);
+        $thumb_url = '';
+        if($v instanceof Pageimages && count($v)) {
+            $thumb_url = $page->$field->first()->size($size[0],$size[1])->url;
+        } elseif($v instanceof Pageimage && $v) {
+            $thumb_url = $page->$field->size($size[0],$size[1])->url;
+        }
+
+        if(strlen(trim($thumb_url))) {
+            return $thumb_url;
+        } else {
+            return;
+        }
+
+    }
+
+
+    /**
+     * Install the autocomplete module
+     *
+     * Make sure we're in InputfieldPage's list of valid page selection widgets
+     *
+     */
+    public function ___install() {
+        $data = $this->wire('modules')->getModuleConfigData('InputfieldPage');  
+        $data['inputfieldClasses'][] = $this->className();
+        $this->wire('modules')->saveModuleConfigData('InputfieldPage', $data); 
+    }
+
+    /**
+     * Uninstall the autocomplete module
+     *
+     * Remove from InputfieldPage's list of page selection widgets
+     *
+     */
+    public function ___uninstall() {
+        $data = $this->wire('modules')->getModuleConfigData('InputfieldPage');  
+        foreach($data['inputfieldClasses'] as $key => $value) {
+            if($value == $this->className()) unset($data['inputfieldClasses'][$key]); 
+        }
+        $this->wire('modules')->saveModuleConfigData('InputfieldPage', $data); 
+    }
+
+
+
+    /**
+     * Provide configuration options for modifying the behavior when paired with InputfieldPage
+     *
+     */
+    public function ___getConfigInputfields() {
+        $inputfields = parent::___getConfigInputfields();
+        $aceInstalled = $this->modules->get('InputfieldAceExtended') ? true : false;
+
+        // Array of data to get about any item for use by the item/option markup
+        if($aceInstalled) {
+            $f = $this->modules->get('InputfieldAceExtended');
+            $f->mode = "php";
+            $f->theme = "monokai";
+        } else {
+            $f = $this->modules->get('InputfieldTextarea');
+        }
+        $f->attr('name', 'itemDataArray');
+        $f->attr('value', $this->itemDataArray);
+        $f->label = $this->_('Array of data to use for items/options');
+        $f->description = $this->_('Your PHP code will be evaluated and MUST return an associative PHP array of the data to be used for each option.');
+        $f->notes = 'This eval has access to the $page variable.';
+        $inputfields->add($f);
+
+        // Optional, instead of above, enter the names of fields of whose values to add to the ajax object
+        $f = $this->modules->get('InputfieldText');
+        $f->attr('name', 'displayFields');
+        $f->label = $this->_('List of fields whose data you need access to for the item and/or option markup.');
+        //$f->collapsed = Inputfield::collapsedNo;
+        $f->attr('value', $this->displayFields);
+        $inputfields->add($f);
+
+        // javascript function for markup that is used to create the item (what is visible once selected)
+        if($aceInstalled) {
+            $f = $this->modules->get('InputfieldAceExtended');
+            $f->mode = "javascript";
+            $f->theme = "monokai";
+        } else {
+            $f = $this->modules->get('InputfieldTextarea');
+        }
+        $f->attr('name', 'renderItemMarkup');
+        $f->attr('value', $this->renderItemMarkup);
+        $f->label = $this->_('Render item markup');
+        $f->description = $this->_('This must be a valid javascript string which is passed to the render function');
+        $f->notes = "for each field in your array, use escape(item.fieldName) ";
+        $inputfields->add($f);
+
+        // javascript function for markup that is used to create the option (visible in list)
+        if($aceInstalled) {
+            $f = $this->modules->get('InputfieldAceExtended');
+            $f->mode = "javascript";
+            $f->theme = "monokai";
+        } else {
+            $f = $this->modules->get('InputfieldTextarea');
+        }
+        $f->attr('name', 'renderOptionMarkup');
+        $f->attr('value', $this->renderOptionMarkup);
+        $f->label = $this->_('Render option markup');
+        $f->description = $this->_('This must be a valid javascript string which is passed to the render function');
+        $f->notes = "for each field in your array, use escape(item.fieldName)";
+        $inputfields->add($f);
+
+        // Placeholder for the input field.
+        $f = $this->modules->get('InputfieldText'); 
+        $f->attr('name', 'placeholder'); 
+        $f->label = $this->_('Empty field placeholder');
+        $f->collapsed = Inputfield::collapsedNo; 
+        $f->attr('value', $this->placeholder);
+        $inputfields->add($f); 
+
+        return $inputfields; 
+    }
+
+
+
+
+
+} // end class

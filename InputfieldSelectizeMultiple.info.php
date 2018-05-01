@@ -6,11 +6,11 @@ $info = array(
     'author'    => 'Macrura',
     'summary'   => 'Inputfield for the ProcessWire FieldtypePage (multi version).', // Module Summary
     'href'      => 'https://processwire.com/talk/topic/13549-selectizejs-modules-family/',
-    'version'   => 108,
+    'version'   => 109,
     'icon'      => 'caret-down',
     'singular'  => false,
     );
 
-if($this->wire('config')->version < '3.0.67') {
+if(version_compare($this->config->version, '3.0.67', '<')) {
 	$info['requires'] = "JquerySelectize";
 }
