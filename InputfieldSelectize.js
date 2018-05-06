@@ -1,3 +1,7 @@
+/**
+ * JAVASCRIPT VERSION LAST UPDATED 5-4-18
+ */
+
 var initSelectize = function() {
 
 	var thisID = $(this).attr('id');
@@ -23,6 +27,8 @@ var initSelectize = function() {
 
 
 $(document).ready(function() {
+
+	$(".AdminThemeUikit .InputfieldSelectize select").removeClass('uk-select');
 
 	$(".InputfieldSelectize select:not([multiple])").each(initSelectize);
 
