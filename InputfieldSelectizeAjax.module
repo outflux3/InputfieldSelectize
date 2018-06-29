@@ -14,7 +14,7 @@ class InputfieldSelectizeAjax extends InputfieldPageAutocomplete {
         return array(
             'title' => 'Selectize with Ajax',
             'author' => 'Macrura',
-            'version' => 100,
+            'version' => 110,
             'summary' => 'Selectize input, using ajax to populate options',
             'href' => '',
             'icon' => 'tags',

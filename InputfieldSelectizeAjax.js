@@ -51,6 +51,8 @@ var initSelectizeAjax = function() {
 
 $(document).ready(function() {
 
+    $(".AdminThemeUikit .InputfieldSelectizeAjax select").removeClass('uk-select');
+
     $(".InputfieldSelectizeAjax select").each(initSelectizeAjax);
 
     $(document).on('reloaded opened repeateradd wiretabclick', '.InputfieldPage', function() {
