@@ -6,7 +6,7 @@ $info = array(
     'author'    => 'Macrura',
     'summary'   => 'Inputfield for the ProcessWire FieldtypePage (multi version).', // Module Summary
     'href'      => 'https://processwire.com/talk/topic/13549-selectizejs-modules-family/',
-    'version'   => 110,
+    'version'   => 120,
     'icon'      => 'caret-down',
     'singular'  => false,
     );

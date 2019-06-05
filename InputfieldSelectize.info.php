@@ -7,7 +7,7 @@ $info = array(
     'summary'   => 'Inputfield for the ProcessWire FieldtypePage.', // Module Summary
     'href'      => 'https://processwire.com/talk/topic/13549-selectizejs-modules-family/',
     'icon'      => 'caret-down',
-    'version'   => 110,
+    'version'   => 120,
     'singular'	=> false
     );
 

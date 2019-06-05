@@ -51,12 +51,12 @@ var initSelectizeAjax = function() {
 
 $(document).ready(function() {
 
-    $(".AdminThemeUikit .InputfieldSelectizeAjax select").removeClass('uk-select');
+    $(".AdminThemeUikit .InputfieldSelectizeAjax select").removeClass('uk-select uk-form-small uk-form-large');
 
     $(".InputfieldSelectizeAjax select").each(initSelectizeAjax);
 
     $(document).on('reloaded opened repeateradd wiretabclick', '.InputfieldPage', function() {
-        $(this).find(".InputfieldSelectizeAjax select)").each(initSelectizeAjax);
+        $(this).find(".InputfieldSelectizeAjax").each(initSelectizeAjax);
     });
 
 });

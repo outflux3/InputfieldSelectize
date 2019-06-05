@@ -28,7 +28,7 @@ var initSelectize = function() {
 
 $(document).ready(function() {
 
-	$(".AdminThemeUikit .InputfieldSelectize select").removeClass('uk-select');
+	$(".AdminThemeUikit .InputfieldSelectize select").removeClass('uk-select uk-form-small uk-form-large');
 
 	$(".InputfieldSelectize select:not([multiple])").each(initSelectize);
 
