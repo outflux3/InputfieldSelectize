@@ -36,13 +36,13 @@ var initSelectizeAjax = function() {
                 callback();
             },
             success: function(res) {
-                //console.log(res);
-                console.log(res.matches[0]);
                 //console.log(res.matches);
                 callback(res.matches);
             }
         });
     }
+
+    thisOpts['valueField'] = 'id';
 
     $(this).selectize(thisOpts);
 
@@ -51,9 +51,11 @@ var initSelectizeAjax = function() {
 
 $(document).ready(function() {
 
-    $(".AdminThemeUikit .InputfieldSelectizeAjax select").removeClass('uk-select uk-form-small uk-form-large');
+    $(".AdminThemeUikit .InputfieldSelectizeAjax select,.AdminThemeUikit .InputfieldSelectizeAjax input").removeClass('uk-select uk-form-small uk-form-large');
+    $(".InputfieldSelectizeAjax select,.InputfieldSelectizeAjax input").each(initSelectizeAjax);
 
-    $(".InputfieldSelectizeAjax select").each(initSelectizeAjax);
+    // $(".AdminThemeUikit .InputfieldSelectizeAjax input").removeClass('uk-select uk-form-small uk-form-large');
+    // $(".InputfieldSelectizeAjax input").each(initSelectizeAjax);
 
     $(document).on('reloaded opened repeateradd wiretabclick', '.InputfieldPage', function() {
         $(this).find(".InputfieldSelectizeAjax").each(initSelectizeAjax);
