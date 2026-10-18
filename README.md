@@ -30,6 +30,34 @@ Selectize:
 
 -----
 
+## Selectize with Ajax (InputfieldSelectizeAjax)
+
+For Page fields with too many selectable pages to load up front. It extends the core
+`InputfieldPageAutocomplete`, so the usual autocomplete settings (selectable pages, search
+fields, operator) apply, and options are loaded from ProcessPageSearch as you type.
+Requires ProcessWire 3.0.238 or newer for the PHP data array and display fields to reach
+search results (older versions only get what ProcessPageSearch returns itself).
+
+- **Search fields**: the fields matched against what you type (core autocomplete setting).
+  Results are shown as ProcessPageSearch returns them; they are not filtered again in the
+  browser, so the search fields don't need to be in the item data.
+- **Display fields**: fields added to each item, e.g. `title show_type images`.
+  - A Page field gives an object: `item.show_type.title`, `item.show_type.path`,
+    `item.show_type.id`, `item.show_type.name`.
+  - `field.subfield` gives just that value under the field name: `show_type.title` gives
+    `item.show_type` as a string.
+  - An image field gives `item.thumbUrl` (100x100).
+  - Checkboxes come back as 0/1, integers as numbers.
+- **PHP data array**: evaluated for each page (`$page`) and merged over the display fields,
+  for selected items and for search results alike.
+- Every item also has `id`, `editUrl` and `title` (from the data, else the field's label
+  format or label field).
+- **Placeholder when items are selected** (multi-value fields): Selectize removes the
+  placeholder once an item is selected; enter text here (e.g. "Type here to add another…")
+  to keep one.
+
+-----
+
 ## Examples
 
 ### Basic Example

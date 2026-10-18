@@ -13,7 +13,7 @@ if(!class_exists('\ProcessWire\InputfieldPageAutocomplete')) {
             return array(
                 'title' => 'Selectize with Ajax',
                 'author' => 'Macrura',
-                'version' => 121,
+                'version' => 123,
                 'summary' => 'Selectize input, using ajax to populate options',
                 'href' => '',
                 'icon' => 'tags',
@@ -45,7 +45,7 @@ if(!class_exists('\ProcessWire\InputfieldPageAutocomplete')) {
         return array(
             'title' => 'Selectize with Ajax',
             'author' => 'Macrura',
-            'version' => 121,
+            'version' => 123,
             'summary' => 'Selectize input, using ajax to populate options',
             'href' => '',
             'icon' => 'tags',
@@ -57,113 +57,228 @@ if(!class_exists('\ProcessWire\InputfieldPageAutocomplete')) {
 
     protected $selectizeOptions = array();
     protected $jsConfig = array();
-    //protected $itemDataArray = array();
+
+    /**
+     * Has the "data array must return an array" error been shown for this instance?
+     *
+     * @var bool
+     */
+    protected $itemDataError = false;
 
     public function setSelectizeOption($key, $value) {
         $this->selectizeOptions[$key] = $value;
     }
 
+    /**
+     * Encode data for a single-quoted HTML attribute (data-data='…').
+     * Plain json_encode() leaves ' as is, which ends the attribute early.
+     *
+     * @param mixed $data
+     * @return string
+     */
+    protected function jsonAttr($data) {
+        return json_encode($data, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_HEX_TAG);
+    }
 
     /**
-     * Hook this and return an array with whatever extended attributes you need.
+     * The ajax search URL (ProcessPageSearch).
      *
+     * Without format_name: with a label format, ProcessPageSearch returns only the formatted
+     * label, leaving out title and the display fields the option templates need.
+     * (The field name still reaches addData(): core stores it with the search selector.)
+     *
+     * @return string
      */
-    public function ___extendAttributes($page) {
+    protected function ___getAjaxUrl() {
+        $url = (string) parent::___getAjaxUrl();
+        $url = preg_replace('/([?&])format_name=[^&]*(&|$)/', '$1', $url);
+        return rtrim($url, '&?');
+    }
 
-        if($this->itemDataArray) $data = eval($this->itemDataArray);
+    /**
+     * The Page field an ajax search request is for, from the data core stored with its selector.
+     *
+     * Needs ProcessWire 3.0.238+ (getForSelector() with data); older versions return null.
+     *
+     * @param HookEvent $event ProcessPageSearch::executeFor
+     * @return Field|null
+     */
+    protected function ajaxField(HookEvent $event) {
+        $process = $event->object;
+        $selectorName = $this->wire('input')->get->fieldName('for_selector_name');
+        if(!$selectorName || !method_exists($process, 'getForSelector')) return null;
+        $data = $process->getForSelector($selectorName, true);
+        $name = is_array($data) && !empty($data['field']) ? $this->wire('sanitizer')->fieldName($data['field']) : '';
+        if(!$name) return null;
+        $field = $this->wire('fields')->get($name);
+        if(!$field || $field->get('inputfield') !== $this->className()) return null;
+        return $field;
+    }
 
-        /**
-         * This validates that the eval'd code from
-         * the $itemDataArray is an array
-         */
-        if(!empty($data) && !is_array($data)) {
-            if($this->wire('process')->className() == 'ProcessPageEdit') {
-                return $this->error($this->_('Only arrays should be returned by your code. Please check that you have input valid code.'));
+    /**
+     * Field names from a settings string ("a b", "a,b" or "a|b"), keeping one "field.subfield" level.
+     *
+     * @param string $str
+     * @return array
+     */
+    protected function fieldNames($str) {
+        $sanitizer = $this->wire('sanitizer');
+        $names = array();
+        foreach(preg_split('/[\s,|]+/', (string) $str) as $name) {
+            $subname = '';
+            if(strpos($name, '.')) list($name, $subname) = explode('.', $name, 2);
+            $name = $sanitizer->fieldName($name);
+            if(!$name) continue;
+            if($subname) {
+                $subname = $sanitizer->fieldName($subname);
+                if(!$subname) continue;
+                $name .= ".$subname";
+            }
+            $names[$name] = $name;
+        }
+        return array_values($names);
+    }
+
+    /**
+     * A field value as JSON-ready data, in the same shape ProcessPageSearch gives it in ajax results
+     * (a Page becomes {id, parent_id, template, name, path, title}).
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    protected function exportValue($value) {
+        if($value instanceof Page) {
+            return array(
+                'id' => $value->id,
+                'parent_id' => $value->parent_id,
+                'template' => $value->template ? $value->template->name : '',
+                'name' => $value->name,
+                'path' => $value->path,
+                'title' => (string) $value->get('title'),
+            );
+        }
+        if($value instanceof WireData || $value instanceof WireArray) {
+            $value = $value->getArray();
+        } else if(is_object($value)) {
+            return method_exists($value, '__toString') ? (string) $value : '';
+        }
+        if(is_array($value)) {
+            foreach($value as $key => $v) $value[$key] = $this->exportValue($v);
+        }
+        return $value === null ? '' : $value;
+    }
+
+    /**
+     * The text label for a page: label format, else label field, else title or name.
+     *
+     * @param Page $page
+     * @param WireData $settings This Inputfield, or the Field during an ajax search
+     * @return string
+     */
+    protected function labelText(Page $page, WireData $settings) {
+        $sanitizer = $this->wire('sanitizer');
+        $format = (string) $settings->get('labelFieldFormat');
+        $labelField = (string) $settings->get('labelFieldName');
+        if(!$labelField || $labelField === '.') $labelField = 'title';
+        $text = $format ? $page->getText($format, true, false) : (string) $page->get($labelField);
+        if(!strlen($text)) $text = (string) $page->get('title|name');
+        $text = strip_tags($text);
+        if(strpos($text, '&') !== false) $text = $sanitizer->unentities($text);
+        return $text;
+    }
+
+    /**
+     * Evaluate the field's PHP data array for one page.
+     *
+     * Kept apart so the code only sees $page (and $this).
+     *
+     * @param string $code
+     * @param Page $page
+     * @return mixed The returned value, or null when the code throws
+     */
+    protected function evalItemData($code, Page $page) {
+        try {
+            return eval($code);
+        } catch(\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * The data for one item/option.
+     *
+     * Display fields come first, then the PHP data array (which wins over them), then id, editUrl
+     * and a title fallback. Selected items (render) and ajax matches (addData) both use this,
+     * so templates get the same data either way.
+     *
+     * @param Page $page
+     * @param WireData $settings This Inputfield, or the Field during an ajax search
+     * @return array
+     */
+    protected function itemData(Page $page, WireData $settings) {
+
+        $data = array();
+
+        foreach($this->fieldNames($settings->get('displayFields')) as $name) {
+            if(strpos($name, '.')) {
+                // field.subfield: the subfield's value, under the field name
+                list($name, $subname) = explode('.', $name, 2);
+                $value = $page->get($name);
+                $data[$name] = $this->exportValue(is_object($value) ? $value->get($subname) : '');
+                continue;
+            }
+            $thumbUrl = $this->thumbUrl($name, $page);
+            if($thumbUrl) {
+                if(!isset($data['thumbUrl'])) $data['thumbUrl'] = $thumbUrl;
+            } else {
+                $data[$name] = $this->exportValue($page->get($name));
             }
         }
 
-        // if there is no data array entered, try and generate one from the display fields entered
-        if(!$this->itemDataArray && $this->displayFields) {
-
-            $data = array();
-
-            $displayFields = str_replace(array(',', '|'), ' ', $this->displayFields); // QA?
-            foreach(explode(' ', $displayFields) as $key => $name) {
-                $name = trim($name);
-                if(strpos($name, '.')) {
-                    list($name, $subname) = explode('.', $name);
-                    $name = $this->wire('sanitizer')->fieldName($name);
-                    $subname = $this->wire('sanitizer')->fieldName($subname);
-                    if($name && $subname) $data[$name] = $page->$name->$subname;
-                } else {
-                    $name = $this->wire('sanitizer')->fieldName($name);
-                    if($page->$name)
-                    if($this->generateThumb2($name, $page)) {
-                        $data['thumbUrl'] = $this->generateThumb2($name, $page);
-                    } else {
-                        $data[$name] = $page->$name;
-                    }
-                }
+        $code = trim((string) $settings->get('itemDataArray'));
+        if(strlen($code)) {
+            $extraData = $this->evalItemData($code, $page);
+            if(is_array($extraData)) {
+                $data = array_merge($data, $extraData);
+            } else if(!$this->itemDataError && !$this->wire('config')->ajax) {
+                $this->itemDataError = true;
+                $this->error($this->_('Only arrays should be returned by your code. Please check that you have input valid code.'));
             }
         }
 
-    
-        //renderMatchesAjax already adds this for adminsearchmode?
+        $data['id'] = $page->id;
         if(!isset($data['editUrl'])) $data['editUrl'] = $page->editUrl;
-        //$data['id'] = $page->id;  
-        return "data-data='" . json_encode($data) . "'";
+        if(!isset($data['title']) || (is_string($data['title']) && !strlen($data['title']))) {
+            $data['title'] = $this->labelText($page, $settings);
+        }
 
+        return $data;
     }
 
 
- /**
-     * Hook this and return an array with whatever extended attributes you need.
+    /**
+     * Attributes for the selected <option> of a single-value field.
      *
+     * Hook this and return whatever extended attributes you need.
+     *
+     * @param Page $page
+     * @return string
+     */
+    public function ___extendAttributes($page) {
+        return "data-data='" . $this->jsonAttr($this->itemData($page, $this)) . "'";
+    }
+
+
+    /**
+     * Data for one selected item of a multi-value field.
+     *
+     * Hook this and return whatever data you need.
+     *
+     * @param Page $page
+     * @return array
      */
     public function ___extendAttributesMulti($page) {
-
-        if($this->itemDataArray) $data = eval($this->itemDataArray);
-
-        /**
-         * This validates that the eval'd code from
-         * the $itemDataArray is an array
-         */
-        if(!empty($data) && !is_array($data)) {
-            if($this->wire('process')->className() == 'ProcessPageEdit') {
-                return $this->error($this->_('Only arrays should be returned by your code. Please check that you have input valid code.'));
-            }
-        }
-
-        // if there is no data array entered, try and generate one from the display fields entered
-        if(!$this->itemDataArray && $this->displayFields) {
-
-            $data = array();
-
-            $displayFields = str_replace(array(',', '|'), ' ', $this->displayFields); // QA?
-            foreach(explode(' ', $displayFields) as $key => $name) {
-                $name = trim($name);
-                if(strpos($name, '.')) {
-                    list($name, $subname) = explode('.', $name);
-                    $name = $this->wire('sanitizer')->fieldName($name);
-                    $subname = $this->wire('sanitizer')->fieldName($subname);
-                    if($name && $subname) $data[$name] = $page->$name->$subname;
-                } else {
-                    $name = $this->wire('sanitizer')->fieldName($name);
-                    if($page->$name)
-                    if($this->generateThumb2($name, $page)) {
-                        $data['thumbUrl'] = $this->generateThumb2($name, $page);
-                    } else {
-                        $data[$name] = $page->$name;
-                    }
-                }
-            }
-        }
-
-        //renderMatchesAjax already adds this for adminsearchmode?
-        if(!isset($data['editUrl'])) $data['editUrl'] = $page->editUrl;
-        $data['id'] = $page->id;
-        return $data;
-
+        return $this->itemData($page, $this);
     }
 
 
@@ -174,10 +289,9 @@ if(!class_exists('\ProcessWire\InputfieldPageAutocomplete')) {
         $this->set('renderOptionMarkup', '');
         $this->set('renderItemMarkup', '');
         $this->set('allowEmptyOption', 0);
+        $this->set('placeholderMore', '');
 
         $this->wire('modules')->get('JqueryUI')->use('selectize');
-
-        $this->addHookAfter('ProcessPageSearch::executeFor', $this, 'generateThumb');
 
     }
 
@@ -196,15 +310,13 @@ if(!class_exists('\ProcessWire\InputfieldPageAutocomplete')) {
      */
     public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 
-        $class = $this->className();
-        $info = self::getModuleInfo();
-        $ver = $info['version'];
+        $maxSelected = (int) $this->maxSelectedItems;
 
         if($this->required) {
             $this->allowEmptyOption = 1;
         }
 
-        if(!$this->maxSelectedItems) {
+        if($maxSelected != 1) {
             $this->setSelectizeOption('plugins', ['remove_button','drag_drop']);
             $this->set('size', null);
         }
@@ -213,9 +325,9 @@ if(!class_exists('\ProcessWire\InputfieldPageAutocomplete')) {
         $this->setSelectizeOption('labelField', 'title');
         $this->setSelectizeOption('create', false);
 
-        if($this->searchFields) {
-            $searchArray = explode(' ', $this->searchFields);
-            $this->setSelectizeOption('searchField', $searchArray);
+        $searchFields = $this->fieldNames($this->searchFields);
+        if(count($searchFields)) {
+            $this->setSelectizeOption('searchField', $searchFields);
         }
 
         if($this->renderItemMarkup) {
@@ -226,9 +338,11 @@ if(!class_exists('\ProcessWire\InputfieldPageAutocomplete')) {
             $this->jsConfig['renderOptionMarkup'] = $this->renderOptionMarkup;
         }
 
-		if($this->maxItems) {
-			$this->setSelectizeOption('maxItems', $this->maxItems);
-		}
+        $maxItems = (int) $this->maxItems;
+        if(!$maxItems && $maxSelected > 1) $maxItems = $maxSelected;
+        if($maxItems) {
+            $this->setSelectizeOption('maxItems', $maxItems);
+        }
 
         if($this->allowEmptyOption) {
             $this->setSelectizeOption('allowEmptyOption', true);
@@ -251,238 +365,113 @@ if(!class_exists('\ProcessWire\InputfieldPageAutocomplete')) {
         $sanitizer = $this->wire('sanitizer');
 
         $this->useList = false;
-        $out = '';
-        
-        $value = implode(',', $this->value); 
-        $url = $this->getAjaxUrl();
+        $max = (int) $this->maxSelectedItems;
+        $multiple = $max != 1;
 
-        // convert our list of search fields to a CSV string for use in the ProcessPageSearch query
-        $searchField = '';
-        $searchFields = str_replace(array(',', '|'), ' ', $this->searchFields);
-        foreach(explode(' ', $searchFields) as $key => $name) {
-            $name = trim($name); 
-            // @esrch pr#994 --
-            if(strpos($name, '.')) {
-                list($name, $subname) = explode('.', $name);
-                $name = $this->wire('sanitizer')->fieldName($name);
-                $subname = $this->wire('sanitizer')->fieldName($subname);
-                if($name && $subname) $name .= "-$subname";
-                // -- pr#994
-            } else {
-                $name = $this->wire('sanitizer')->fieldName($name);
-            }
-            if($name) $searchField .= ($searchField ? ',' : '') . $name; 
+        $items = $this->wire('pages')->getById($this->value);
+        $value = array();
+        foreach($items as $item) {
+            if($item && $item->id) $value[] = $item->id;
         }
+        $value = implode(',', $value);
 
+        // search fields as CSV for the ProcessPageSearch query, with "-" for subfields as core does
+        $searchField = str_replace('.', '-', implode(',', $this->fieldNames($this->searchFields)));
         if(!$searchField) $searchField = 'title';
 
-        // convert our list of search fields to a CSV string for use in the ProcessPageSearch query
-        $displayField = '';
-        $displayFields = str_replace(array(',', '|'), ' ', $this->displayFields);
-        foreach(explode(' ', $displayFields) as $key => $name) {
-            $name = trim($name); 
-            // @esrch pr#994 --
-            if(strpos($name, '.')) {
-                list($name, $subname) = explode('.', $name);
-                $name = $this->wire('sanitizer')->fieldName($name);
-                $subname = $this->wire('sanitizer')->fieldName($subname);
-                if($name && $subname) $name .= "-$subname";
-                // -- pr#994
-            } else {
-                $name = $this->wire('sanitizer')->fieldName($name);
-            }
-            if($name) $displayField .= ($displayField ? ',' : '') . $name; 
+        // display fields for ProcessPageSearch: it can't return subfields, so ask for the field
+        // itself; title is always included for the default label
+        $displayField = array('title' => 'title');
+        foreach($this->fieldNames($this->displayFields) as $name) {
+            if(strpos($name, '.')) list($name, ) = explode('.', $name, 2);
+            $displayField[$name] = $name;
+        }
+        $displayField = implode(',', $displayField);
+
+        $labelField = $this->labelFieldFormat ? "autocomplete_$this->name" : $this->labelFieldName;
+
+        $attrs = array(
+            'placeholder' => $this->placeholder ?: $this->_('Type something'),
+            'data-max' => $max,
+            'data-url' => $this->getAjaxUrl(),
+            'data-label' => $labelField,
+            'data-search' => $searchField,
+            'data-operator' => $this->operator,
+            'data-fields' => $displayField,
+        );
+        if($multiple && strlen(trim((string) $this->placeholderMore))) {
+            $attrs['data-placeholder-more'] = trim((string) $this->placeholderMore);
         }
 
-        if(!$displayField) $displayField = 'title';
-
-        $addNote = $this->_('Hit enter to add as new item'); 
-
-        $labelField = $this->labelFieldFormat ? "autocomplete_$this->name" : $this->labelFieldName; 
-        $operator = $this->operator; 
-        $id = $this->id; 
-        $max = (int) $this->maxSelectedItems; 
-        //$class = $this->useList ? 'has_list' : 'no_list';
-        if($this->useAndWords) $class .= " and_words";
-        if($this->allowAnyValue) $class .= " allow_any";
-
-        $disableChars = $this->disableChars; 
-        if($disableChars) {
-            $hasDoubleQuote = strpos($disableChars, '"') !== false; 
-            $hasSingleQuote = strpos($disableChars, "'") !== false; 
-            if($hasDoubleQuote && $hasSingleQuote) {
-                $this->error("disableChars cannot have both double and single quotes"); 
-                $disableChars = str_replace('"', '', $disableChars); 
-            }
-            if($hasSingleQuote) $disableChars = "data-disablechars=\"$disableChars\" ";
-                else $disableChars = "data-disablechars='$disableChars' ";
+        $attrStr = '';
+        foreach($attrs as $name => $attrValue) {
+            $attrStr .= " $name='" . $sanitizer->entities((string) $attrValue) . "'";
         }
 
-        $placeholder = $this->placeholder ?: 'Type something';
+        $id = $this->id;
+        $name = $this->name;
 
-        $attrs =
-            "placeholder='$placeholder' " . 
-            "data-max='$max' " . 
-            "data-url='$url' " . 
-            "data-label='" . $this->wire('sanitizer')->entities($labelField) . "' " . 
-            "data-search='$searchField' " . 
-            "data-operator='$operator' " .
-            "data-fields='$displayField' ";
-
-        /**
-         * Multiple
-         */
-        if($this->maxSelectedItems != 1) {
-            $attrs .= "multiple ";
-            $inputType = 'input';
-        }
-       // if(count($this->value) >1) {
-        if($this->maxSelectedItems != 1) {
-            $items = $this->wire('pages')->getById($this->value);
-            $array = [];
+        if($multiple) {
+            $data = array();
             foreach($items as $item) {
-                if($item && $item->id) {
-                    $textValue = $this->labelFieldFormat ? $item->getText($this->labelFieldFormat, true, false) : $item->get($labelField);
-                    if(!strlen($textValue)) $textValue = $item->get('title|name');
-                    $textValue = strip_tags($textValue);
-                    if(strpos($textValue, '&') !== false) $textValue = $this->wire('sanitizer')->unentities($textValue);
-                    $textValue = $this->wire('sanitizer')->entities($textValue);
-                    $data = $this->extendAttributesMulti($item);
-                }
-                $array[] = $data;
-                //$options .= "<option selected value='$item->id' {$optAttrs}>$textValue</option>";
+                if($item && $item->id) $data[] = $this->extendAttributesMulti($item);
             }
+            $input = "<input type='text' name='{$name}[]' id='$id' class='InputfieldSelectizeAjax' " .
+                "value='$value' multiple{$attrStr} data-data='" . $this->jsonAttr($data) . "' />";
 
-            $attrs .= "data-data='" . json_encode($array) . "'";
+        } else {
+            $option = '';
+            $item = $items->first();
+            if($item && $item->id) {
+                $textValue = $sanitizer->entities($this->labelText($item, $this));
+                $option = "<option selected value='$item->id' " . $this->extendAttributes($item) . ">$textValue</option>";
+            }
+            $input = "<select name='{$name}[]' id='$id' class='InputfieldSelectizeAjax'{$attrStr}>$option</select>";
         }
 
-        /**
-         * SINGLE
-         */
-        $option = '';
-        if($this->maxSelectedItems == 1) {
-       // if(count($this->value) == 1) {
-            $inputType = 'select';
-            $textValue = '';
-            $remove = '';
-        
-            if(!$this->useList) {
-                if(count($this->value)) {
-                    $item = $this->wire('pages')->getById($this->value)->first();
-                    if($item && $item->id) {
-                        $textValue = $this->labelFieldFormat ? $item->getText($this->labelFieldFormat, true, false) : $item->get($labelField);
-                        if(!strlen($textValue)) $textValue = $item->get('title|name');
-                        $textValue = strip_tags($textValue);
-                        if(strpos($textValue, '&') !== false) $textValue = $this->wire('sanitizer')->unentities($textValue);
-                        $textValue = $this->wire('sanitizer')->entities($textValue);
-                        $optAttrs = $this->extendAttributes($item);
-                    }
-                }
-
-            }
-            
-            if($value && $textValue) {
-                $option =  "<option selected value='$value' {$optAttrs}>$textValue</option>";
-            }
-        }
-
-		$addingLabel = $sanitizer->entities1($this->_('New item:'));
-		$dataClass = $sanitizer->entities(trim('InputfieldSelectizeAjaxData ' . $this->attr('class')));
-
-        $out .= <<< _OUT
-
-        <p><!-- Selectize Ajax -->
-            <$inputType name='{$this->name}[]' id='$id' class='InputfieldSelectizeAjax' value='$value' {$attrs}/>
-                $option
-            </$inputType>
-           
-        </p>
-_OUT;
-
-        return $out; 
+        return "\n<p><!-- Selectize Ajax -->\n\t$input\n</p>";
     }
 
 
-    public function generateThumb($event) {
-
-        if(!$this->config->ajax) return;
-
-        $response = $event->return;
-        $responseArray = json_decode($response, true);
-        $matches = $responseArray['matches'];
-     
-        $size = explode(",", "100,100");
-        $i=0;
-
-        foreach($matches as $match) {
-
-            $id = $match['id'];
-            $page = $this->pages->get($id);
-            foreach($match as $field => $value) {
-                $v = $page->get($field);
-                $thumb_url = '';
-                if($v instanceof Pageimages && count($v)) {
-                    $thumb_url = $page->$field->first()->size($size[0],$size[1])->url;
-                } elseif($v instanceof ProcessWire\Pageimage && $v) {
-                    $thumb_url = $page->$field->size($size[0],$size[1])->url;
-                }
-
-                if(strlen(trim($thumb_url))) {
-                    $matches[$i]['thumbUrl'] = $thumb_url;
-                }
-
-            }
-
-            $i++;
-
-        }
-
-        $responseArray['matches'] = $matches;
-        $event->return = json_encode($responseArray);
-
-    }
-
+    /**
+     * Add the field's item data (display fields, thumbnail, PHP data array) to each ajax match,
+     * so options get the same data as selected items. Runs on the module's autoload instance,
+     * which has no field settings, so they come from the Page field the search is for.
+     *
+     * @param HookEvent $event ProcessPageSearch::executeFor
+     */
     public function addData($event) {
 
         if(!$this->config->ajax) return;
-        $response = $event->return;
-        $responseArray = json_decode($response, true);
-        $matches = $responseArray['matches'];
-        $i=0;
-        foreach($matches as $match) {
-            $id = $match['id'];
-            $page = $this->pages->get($id);
-            
-            if($this->itemDataArray) {
-                $extraData = eval($this->itemDataArray);
-                array_merge($matches[$i],$extraData);
-            }
+        $field = $this->ajaxField($event);
+        if(!$field) return;
 
-            $i++;
+        $responseArray = json_decode($event->return, true);
+        if(!is_array($responseArray) || empty($responseArray['matches'])) return;
+
+        foreach($responseArray['matches'] as $i => $match) {
+            $page = $this->wire('pages')->get((int) $match['id']);
+            if(!$page->id) continue;
+            $responseArray['matches'][$i] = array_merge($match, $this->itemData($page, $field));
         }
 
-        $responseArray['matches'] = $matches;
         $event->return = json_encode($responseArray);
 
     }
 
 
-    private function generateThumb2($field, $page) {
-        $size = explode(",", "100,100");
+    /**
+     * URL of a 100x100 thumbnail when $field is an image field with an image, else ''.
+     *
+     * @param string $field
+     * @param Page $page
+     * @return string
+     */
+    protected function thumbUrl($field, Page $page) {
         $v = $page->get($field);
-        $thumb_url = '';
-        if($v instanceof Pageimages && count($v)) {
-            $thumb_url = $page->$field->first()->size($size[0],$size[1])->url;
-        } elseif($v instanceof Pageimage && $v) {
-            $thumb_url = $page->$field->size($size[0],$size[1])->url;
-        }
-
-        if(strlen(trim($thumb_url))) {
-            return $thumb_url;
-        } else {
-            return;
-        }
-
+        if($v instanceof Pageimages) $v = $v->first();
+        if(!$v instanceof Pageimage) return '';
+        return (string) $v->size(100, 100)->url;
     }
 
 
@@ -493,9 +482,9 @@ _OUT;
      *
      */
     public function ___install() {
-        $data = $this->wire('modules')->getModuleConfigData('InputfieldPage');  
+        $data = $this->wire('modules')->getModuleConfigData('InputfieldPage');
         $data['inputfieldClasses'][] = $this->className();
-        $this->wire('modules')->saveModuleConfigData('InputfieldPage', $data); 
+        $this->wire('modules')->saveModuleConfigData('InputfieldPage', $data);
     }
 
     /**
@@ -505,11 +494,11 @@ _OUT;
      *
      */
     public function ___uninstall() {
-        $data = $this->wire('modules')->getModuleConfigData('InputfieldPage');  
+        $data = $this->wire('modules')->getModuleConfigData('InputfieldPage');
         foreach($data['inputfieldClasses'] as $key => $value) {
-            if($value == $this->className()) unset($data['inputfieldClasses'][$key]); 
+            if($value == $this->className()) unset($data['inputfieldClasses'][$key]);
         }
-        $this->wire('modules')->saveModuleConfigData('InputfieldPage', $data); 
+        $this->wire('modules')->saveModuleConfigData('InputfieldPage', $data);
     }
 
 
@@ -534,13 +523,14 @@ _OUT;
         $f->attr('value', $this->itemDataArray);
         $f->label = $this->_('Array of data to use for items/options');
         $f->description = $this->_('Your PHP code will be evaluated and MUST return an associative PHP array of the data to be used for each option.');
-        $f->notes = 'This eval has access to the $page variable.';
+        $f->notes = $this->_('This eval has access to the $page variable. Its keys are added to (and override) the display fields below, for selected items and for search results.');
         $inputfields->add($f);
 
         // Optional, instead of above, enter the names of fields of whose values to add to the ajax object
         $f = $this->modules->get('InputfieldText');
         $f->attr('name', 'displayFields');
         $f->label = $this->_('List of fields whose data you need access to for the item and/or option markup.');
+        $f->notes = $this->_('Separate with a space. A Page field gives an object (item.field.title, item.field.path …); field.subfield gives just that value (item.field). An image field gives item.thumbUrl (100x100). Every item also has id, title and editUrl.');
         //$f->collapsed = Inputfield::collapsedNo;
         $f->attr('value', $this->displayFields);
         $inputfields->add($f);
@@ -576,14 +566,24 @@ _OUT;
         $inputfields->add($f);
 
         // Placeholder for the input field.
-        $f = $this->modules->get('InputfieldText'); 
-        $f->attr('name', 'placeholder'); 
+        $f = $this->modules->get('InputfieldText');
+        $f->attr('name', 'placeholder');
         $f->label = $this->_('Empty field placeholder');
-        $f->collapsed = Inputfield::collapsedNo; 
+        $f->collapsed = Inputfield::collapsedNo;
         $f->attr('value', $this->placeholder);
-        $inputfields->add($f); 
+        $inputfields->add($f);
 
-        return $inputfields; 
+        // Placeholder once items are selected (multi-value fields)
+        $f = $this->modules->get('InputfieldText');
+        $f->attr('name', 'placeholderMore');
+        $f->label = $this->_('Placeholder when items are selected');
+        $f->description = $this->_('Multi-value fields only. Selectize removes the placeholder once an item is selected, so editors may not see that they can type to add more. Enter text to keep one, e.g. "Type here to add another…".');
+        $f->notes = $this->_('Leave blank for the Selectize default (no placeholder once an item is selected).');
+        $f->collapsed = Inputfield::collapsedNo;
+        $f->attr('value', $this->placeholderMore);
+        $inputfields->add($f);
+
+        return $inputfields;
     }
 
     } // end real class

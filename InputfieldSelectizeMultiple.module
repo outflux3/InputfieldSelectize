@@ -66,7 +66,7 @@ class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements In
    /**
      * Adds an option with extended attributes that allow mutually exclusive groups.
      */
-    public function addOption($value, $label = null, array $attributes = null) {
+    public function addOption($value, $label = null, ?array $attributes = null) {
         if(is_null($value) || (is_string($value) && !strlen($value))) return $this;
         if (null === $attributes) $attributes = array();
 
@@ -105,8 +105,9 @@ class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements In
          */
         if(!is_array($data)) {
         	if($this->wire('process')->className() == 'ProcessPageEdit') {
-        		return $this->error($this->_('Only arrays should be returned by your code. Please check that you have input valid code.'));
+        		$this->error($this->_('Only arrays should be returned by your code. Please check that you have input valid code.'));
         	}
+        	return $atts;
         }
 
         $atts['data-data'] = json_encode($data);
@@ -121,7 +122,7 @@ class InputfieldSelectizeMultiple extends InputfieldSelectMultiple implements In
 	 * @return bool
 	 *
 	 */
-	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	public function renderReady(?Inputfield $parent = null, $renderValueMode = false) {
 
 		$class = $this->className();
 		$info = self::getModuleInfo();
